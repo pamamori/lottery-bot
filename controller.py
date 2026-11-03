@@ -9,6 +9,16 @@ import notification
 import time
 
 
+def _get_count() -> int:
+    raw = (os.environ.get('COUNT') or '').strip()
+    try:
+        count = int(raw) if raw else 1
+    except ValueError:
+        raise ValueError(f"COUNT 값이 숫자가 아닙니다: {raw!r}")
+    if not 1 <= count <= 5:
+        raise ValueError(f"COUNT 는 1~5 사이여야 합니다: {count}")
+    return count
+
 def _setup_and_login():
     load_dotenv(override=True)
     username = os.environ.get('USERNAME')
@@ -25,10 +35,7 @@ def _setup_and_login():
     if telegram_bot_token and telegram_bot_token.startswith("YOUR_"):
         telegram_bot_token = None
 
-    if slack_webhook_url:
-        webhook_url = slack_webhook_url
-    else:
-        webhook_url = discord_webhook_url
+    webhook_url = slack_webhook_url or discord_webhook_url or ""
 
     auth_ctrl = auth.AuthController()
     auth_ctrl.login(username, password)
@@ -87,7 +94,7 @@ def check():
 
 def buy(): 
     load_dotenv(override=True) 
-    count = int(os.environ.get('COUNT'))
+    count = _get_count()
     mode = "AUTO"
 
     auth_ctrl, username, webhook_url = _setup_and_login()
@@ -105,7 +112,7 @@ def buy():
 
 def lotto_buy():
     load_dotenv(override=True)
-    count = int(os.environ.get('COUNT'))
+    count = _get_count()
     auth_ctrl, _, discord_webhook_url = _setup_and_login()
     mode = "AUTO"
     
@@ -147,7 +154,10 @@ def run():
         lotto_check()
     elif sys.argv[1] == "check_win720":
         win720_check()
-  
+    else:
+        print(f"Unknown command: {sys.argv[1]}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     run()

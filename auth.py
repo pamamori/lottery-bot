@@ -36,8 +36,10 @@ class AuthController:
         self.http_client = HttpClientSingleton.get_instance()
 
     def login(self, user_id: str, password: str):
-        assert isinstance(user_id, str)
-        assert isinstance(password, str)
+        if not user_id or not password:
+            raise ValueError("USERNAME / PASSWORD 환경변수(또는 GitHub Secrets)가 설정되지 않았습니다.")
+        user_id = user_id.strip()
+        password = password.strip()
 
         max_retries = 5
         for attempt in range(max_retries):
@@ -71,7 +73,7 @@ class AuthController:
                 self._try_login(headers, data)
                 return # Success
                 
-            except requests.RequestException as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
                 time.sleep(2)
                 if attempt == max_retries - 1:
                      print(f"[Error] Login sequence failed after {max_retries} attempts: {e}")
@@ -174,10 +176,14 @@ class AuthController:
              self.http_client.session.cookies.set("WMONID", wmonid, domain=".dhlottery.co.kr")
 
     def get_current_session_id(self) -> str:
-        for cookie in self.http_client.session.cookies:
-            if cookie.name in ["JSESSIONID", "DHJSESSIONID", "WMONID"]:
-                return cookie.value
-        
+        # 쿠키 순서에 따라 WMONID(세션 ID 아님)가 먼저 반환되면 연금복권 암호화 키가 틀어지므로
+        # 이름 우선순위대로 찾는다.
+        cookies = list(self.http_client.session.cookies)
+        for name in ["JSESSIONID", "DHJSESSIONID"]:
+            for cookie in cookies:
+                if cookie.name == name and cookie.value:
+                    return cookie.value
+
         if self._AUTH_CRED:
             return self._AUTH_CRED
 

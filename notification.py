@@ -3,7 +3,6 @@ import re
 
 class Notification:
     def send_lotto_buying_message(self, body: dict, webhook_url: str) -> None:
-        assert type(webhook_url) == str
 
         result = body.get("result", {})
         if result.get("resultMsg", "FAILURE").upper() != "SUCCESS":  
@@ -11,7 +10,7 @@ class Notification:
             self._send_discord_webhook(webhook_url, message)
             return
 
-        lotto_number_str = self.make_lotto_number_message(result["arrGameChoiceNum"])
+        lotto_number_str = self.make_lotto_number_message(result.get("arrGameChoiceNum") or [])
         message = f"{result['buyRound']}회 로또 구매 완료 :moneybag: 남은잔액 : {body.get('balance', '확인불가')}\n```{lotto_number_str}```"
         self._send_discord_webhook(webhook_url, message)
 
@@ -60,7 +59,6 @@ class Notification:
 
     def send_lotto_winning_message(self, winning: dict, webhook_url: str) -> None: 
         assert type(winning) == dict
-        assert type(webhook_url) == str
 
         balance_str = winning.get('balance', '확인불가')
         try: 
@@ -108,7 +106,6 @@ class Notification:
 
     def send_win720_winning_message(self, winning: dict, webhook_url: str) -> None: 
         assert type(winning) == dict
-        assert type(webhook_url) == str
 
         balance_str = winning.get('balance', '확인불가')
         try:
@@ -141,5 +138,13 @@ class Notification:
             print(f"[Info] Webhook URL not found. Message: {message}")
             return
         
-        payload = { "content": message }
-        requests.post(webhook_url, json=payload)
+        # Slack 웹훅은 "text", Discord 웹훅은 "content" 필드를 사용
+        if "hooks.slack.com" in webhook_url:
+            payload = {"text": message}
+        else:
+            payload = {"content": message}
+        try:
+            res = requests.post(webhook_url, json=payload, timeout=30)
+            res.raise_for_status()
+        except requests.RequestException as e:
+            print(f"[Error] 알림 전송 실패: {e}\nMessage: {message}")

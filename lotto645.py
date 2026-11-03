@@ -123,7 +123,13 @@ class Lotto645:
                     logger.error(f"[Error] ReadySocket connection failed after {max_retries} attempts: {e}")
                     raise
         
-        direct = json.loads(res.text)["ready_ip"]
+        try:
+            direct = json.loads(res.text)["ready_ip"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise RuntimeError(
+                "구매 서버 준비 응답을 해석하지 못했습니다. 로그인이 실패했거나(아이디/비밀번호 확인) "
+                f"사이트 구조가 바뀌었을 수 있습니다. 응답 앞부분: {res.text[:200]!r}"
+            ) from e
         
         html_headers = self._REQ_HEADERS.copy()
         html_headers.pop("Origin", None)
